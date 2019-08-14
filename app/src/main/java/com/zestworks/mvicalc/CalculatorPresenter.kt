@@ -1,62 +1,57 @@
 package com.zestworks.mvicalc
 
-import androidx.lifecycle.ViewModel
-import com.jakewharton.rxrelay2.BehaviorRelay
-import com.jakewharton.rxrelay2.PublishRelay
+import com.hannesdorfmann.mosby3.mvi.MviBasePresenter
 import io.reactivex.Observable
 
-class CalculatorPresenter: ViewModel() {
+class CalculatorPresenter : MviBasePresenter<CalculatorView, CalcViewModel>() {
 
-    val renderStream : Observable<CalcViewModel>
+    override fun bindIntents() {
+        val inputAModifiedIntent = intent(CalculatorView::inputAModified)
+        val inputBModified = intent(CalculatorView::inputBModified)
+        val buttonClick = intent(CalculatorView::addClicked)
 
-    // Things we must redraw on config change
-    private val viewState = BehaviorRelay.createDefault(StatelessCalcViewModel())
+        val allIntents = Observable.merge(inputAModifiedIntent, inputBModified, buttonClick)
 
-    // Fire and forget
-    private val viewEffects = PublishRelay.create<StatefulCalcViewModel>()
+        val stateToEmit = allIntents
+            .scan(AggregatedState(), this::reduce)
+            .map {
+                it.state
+            }
+            .distinctUntilChanged()
 
-    init {
-        renderStream = viewState.map { it as CalcViewModel }.mergeWith(viewEffects)
+        subscribeViewState(stateToEmit, CalculatorView::render)
     }
 
-    fun onEvent(intent: Intent){
-        when(intent){
-
+    private fun reduce(previousState: AggregatedState, currentIntent: Intent): AggregatedState {
+        return when (currentIntent) {
             is InputAModified -> {
-                val currentState = viewState.value!!
-                viewState.accept(
-                    currentState.copy(
-                        inputA = intent.text
+                val sum = currentIntent.text.toInt().plus(previousState.state.inputB)
+                previousState.copy(
+                    state = previousState.state.copy(
+                        inputA = currentIntent.text.toInt(),
+                        result = sum
                     )
                 )
             }
-
             is InputBModified -> {
-                val currentState = viewState.value!!
-                viewState.accept(
-                    currentState.copy(
-                        inputB = intent.text
+                val sum = previousState.state.inputA.plus(currentIntent.text.toInt())
+                previousState.copy(
+                    state = previousState.state.copy(
+                        inputB = currentIntent.text.toInt(),
+                        result = sum
                     )
                 )
             }
-
             AddClicked -> {
-                val currentState = viewState.value!!
-                if(currentState.inputA.isEmpty() || currentState.inputB.isEmpty()){
-                    viewEffects.accept(
-                        ErrorToast
+                previousState.copy(
+                    state = previousState.state.copy(
+                        shouldShowDialog = true
                     )
-                } else {
-                    val sum = currentState.inputA.toInt() + currentState.inputB.toInt()
-                    viewEffects.accept(
-                        ResultDialog(
-                            sum = sum
-                        )
-                    )
-                }
+                )
+            }
+            NoIntent -> {
+                previousState
             }
         }
-
     }
-
 }

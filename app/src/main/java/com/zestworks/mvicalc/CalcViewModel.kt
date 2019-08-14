@@ -1,15 +1,13 @@
 package com.zestworks.mvicalc
 
-sealed class CalcViewModel
+data class CalcViewModel(
+    val inputA: Int = 0,
+    val inputB: Int = 0,
+    val shouldShowDialog: Boolean = false,
+    val result: Int = 0
+)
 
-data class StatelessCalcViewModel(
-    val inputA : String = "",
-    val inputB : String = ""
-): CalcViewModel()
-
-sealed class StatefulCalcViewModel: CalcViewModel()
-
-object ErrorToast: StatefulCalcViewModel()
-data class ResultDialog(
-    val sum: Int
-): StatefulCalcViewModel()
+data class AggregatedState(
+    val state: CalcViewModel = CalcViewModel(),
+    val lastUserIntent: Intent = NoIntent
+)

@@ -1,79 +1,55 @@
 package com.zestworks.mvicalc
 
 import android.os.Bundle
-import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
-import androidx.lifecycle.ViewModelProviders
+import com.hannesdorfmann.mosby3.mvi.MviFragment
 import com.jakewharton.rxbinding3.view.clicks
 import com.jakewharton.rxbinding3.widget.textChanges
-import io.reactivex.disposables.CompositeDisposable
+import io.reactivex.Observable
 import kotlinx.android.synthetic.main.fragment_calculator.*
 
-class CalculatorFragment : Fragment() {
+class CalculatorFragment : MviFragment<CalculatorView, CalculatorPresenter>(), CalculatorView {
 
-    private lateinit var calculatorPresenter: CalculatorPresenter
+    override fun inputAModified(): Observable<InputAModified> = inputA
+        .textChanges()
+        .filter { it.isNotEmpty() }
+        .map {
+        InputAModified(
+            text = it.toString()
+        )
+    }
 
-    private lateinit var calculatorFragmentDisposable: CompositeDisposable
+    override fun inputBModified(): Observable<InputBModified> = inputB
+        .textChanges()
+        .filter { it.isNotEmpty() }
+        .map {
+        InputBModified(
+            text = it.toString()
+        )
+    }
+
+    override fun addClicked(): Observable<AddClicked> = add.clicks().map {
+        AddClicked
+    }
+
+    override fun createPresenter(): CalculatorPresenter {
+        return CalculatorPresenter()
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? = inflater.inflate(R.layout.fragment_calculator, container, false)
 
-    override fun onStart() {
-        super.onStart()
-        calculatorPresenter = ViewModelProviders.of(activity!!).get(CalculatorPresenter::class.java)
-        calculatorFragmentDisposable = CompositeDisposable()
+    override fun render(viewModel: CalcViewModel) {
+        inputA.text.replace(0, inputA.text.length, viewModel.inputA.toString())
+        inputB.text.replace(0, inputB.text.length, viewModel.inputB.toString())
 
-        calculatorFragmentDisposable.addAll(
-            inputA.textChanges().subscribe {
-                calculatorPresenter.onEvent(
-                    InputAModified(
-                        text = it.toString()
-                    )
-                )
-            },
-            inputB.textChanges().subscribe {
-                calculatorPresenter.onEvent(
-                    InputBModified(
-                        text = it.toString()
-                    )
-                )
-            },
-            add.clicks().subscribe {
-                calculatorPresenter.onEvent(AddClicked)
-            },
-            calculatorPresenter.renderStream.subscribe(this::render)
-        )
-    }
-
-    override fun onStop() {
-        super.onStop()
-        calculatorFragmentDisposable.dispose()
-    }
-
-    private fun render(calcViewModel: CalcViewModel) {
-        when (calcViewModel) {
-
-            is StatelessCalcViewModel -> {
-                // TODO : Rerender textboxes.
-            }
-
-            is StatefulCalcViewModel -> {
-                when (calcViewModel) {
-                    ErrorToast -> {
-                        Toast.makeText(context, "Can't add empty strings!", Toast.LENGTH_SHORT).show()
-                    }
-                    is ResultDialog -> {
-                        val resultDialogFragment = ResultDialogFragment()
-                        resultDialogFragment.setData(calcViewModel)
-                        resultDialogFragment.showNow(activity!!.supportFragmentManager, "test")
-                    }
-                }
-            }
+        if(viewModel.shouldShowDialog){
+            Toast.makeText(context, viewModel.result.toString(), Toast.LENGTH_SHORT).show()
         }
     }
 }
