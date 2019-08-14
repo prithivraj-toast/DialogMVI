@@ -2,8 +2,11 @@ package com.zestworks.mvicalc
 
 import com.hannesdorfmann.mosby3.mvi.MviBasePresenter
 import io.reactivex.Observable
+import io.reactivex.subjects.PublishSubject
 
-class CalculatorPresenter : MviBasePresenter<CalculatorView, CalcViewModel>() {
+class CalculatorPresenter : MviBasePresenter<CalculatorView, BaseViewModel>() {
+
+    private val viewEffects = PublishSubject.create<ShowDialog>()
 
     override fun bindIntents() {
         val inputAModifiedIntent = intent(CalculatorView::inputAModified)
@@ -17,6 +20,7 @@ class CalculatorPresenter : MviBasePresenter<CalculatorView, CalcViewModel>() {
             .map {
                 it.state
             }
+            .mergeWith(viewEffects)
             .distinctUntilChanged()
 
         subscribeViewState(stateToEmit, CalculatorView::render)
@@ -25,29 +29,46 @@ class CalculatorPresenter : MviBasePresenter<CalculatorView, CalcViewModel>() {
     private fun reduce(previousState: AggregatedState, currentIntent: Intent): AggregatedState {
         return when (currentIntent) {
             is InputAModified -> {
-                val sum = currentIntent.text.toInt().plus(previousState.state.inputB)
-                previousState.copy(
-                    state = previousState.state.copy(
-                        inputA = currentIntent.text.toInt(),
-                        result = sum
-                    )
-                )
+                when(previousState.state){
+                    is CalcViewModel -> {
+                        previousState.copy(
+                            state = previousState.state.copy(
+                                inputA = currentIntent.text.toInt()
+                            )
+                        )
+                    }
+                    is ShowDialog -> {
+                        previousState
+                    }
+                }
             }
             is InputBModified -> {
-                val sum = previousState.state.inputA.plus(currentIntent.text.toInt())
-                previousState.copy(
-                    state = previousState.state.copy(
-                        inputB = currentIntent.text.toInt(),
-                        result = sum
-                    )
-                )
+                when(previousState.state){
+                    is CalcViewModel -> {
+                        previousState.copy(
+                            state = previousState.state.copy(
+                                inputB = currentIntent.text.toInt()
+                            )
+                        )
+                    }
+                    is ShowDialog -> {
+                        previousState
+                    }
+                }
             }
             AddClicked -> {
-                previousState.copy(
-                    state = previousState.state.copy(
-                        shouldShowDialog = true
-                    )
-                )
+                when(previousState.state){
+                    is CalcViewModel -> {
+                        val showDialog = ShowDialog(
+                            sum = previousState.state.inputA.plus(previousState.state.inputB)
+                        )
+                        viewEffects.onNext(showDialog)
+                        previousState
+                    }
+                    is ShowDialog -> {
+                        previousState
+                    }
+                }
             }
             NoIntent -> {
                 previousState
