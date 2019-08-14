@@ -44,12 +44,17 @@ class CalculatorFragment : MviFragment<CalculatorView, CalculatorPresenter>(), C
         savedInstanceState: Bundle?
     ): View? = inflater.inflate(R.layout.fragment_calculator, container, false)
 
-    override fun render(viewModel: CalcViewModel) {
-        inputA.text.replace(0, inputA.text.length, viewModel.inputA.toString())
-        inputB.text.replace(0, inputB.text.length, viewModel.inputB.toString())
-
-        if(viewModel.shouldShowDialog){
-            Toast.makeText(context, viewModel.result.toString(), Toast.LENGTH_SHORT).show()
+    override fun render(viewModel: BaseViewModel) {
+        return when(viewModel){
+            is CalcViewModel -> {
+                inputA.text.replace(0, inputA.text.length, viewModel.inputA.toString())
+                inputB.text.replace(0, inputB.text.length, viewModel.inputB.toString())
+                return
+            }
+            is ShowDialog -> {
+                Toast.makeText(context, viewModel.sum.toString(), Toast.LENGTH_SHORT).show()
+            }
         }
+
     }
 }
